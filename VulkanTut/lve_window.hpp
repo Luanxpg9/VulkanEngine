@@ -12,6 +12,7 @@ class LveWindow {
 		LveWindow(int w, int h, std::string name);
 		~LveWindow();
 
+		bool shouldClose() { return glfwWindowShouldClose(window); }
 
 	private: 
 		void initWindow();
