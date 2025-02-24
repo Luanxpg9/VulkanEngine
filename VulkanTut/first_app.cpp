@@ -3,10 +3,12 @@
 // std
 #include <stdexcept>
 #include <array>
+#include <iostream>
 
 namespace lve {
 
 	FirstApp::FirstApp() {
+		loadModels();
 		createPipelineLayout();
 		createPipeline();
 		createCommandBuffers();
@@ -21,6 +23,22 @@ namespace lve {
 			glfwPollEvents();
 			drawFrame();
 		}
+
+		vkDeviceWaitIdle(lveDevice.device());
+	}
+
+	void FirstApp::loadModels() {
+		// Exercise 1: Create a function that draw a inverse triangle inside the triangle, the functions receives the number o decompositions;
+
+		std::vector<LveModel::Vertex> vertices{
+			{{0.0f, -0.5f}},
+			{{0.5f, 0.5f}},
+			{{-0.5f, 0.5f}}
+		};
+
+		breakTriangle(vertices, 4);
+
+		lveModel = std::make_unique<LveModel>(lveDevice, vertices);
 	}
 
 	void FirstApp::createPipelineLayout() {
@@ -83,7 +101,8 @@ namespace lve {
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 			lvePipeline->bind(commandBuffers[i]);
-			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+			lveModel->bind(commandBuffers[i]);
+			lveModel->draw(commandBuffers[i]);
 
 			vkCmdEndRenderPass(commandBuffers[i]);
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
@@ -105,4 +124,50 @@ namespace lve {
 			throw std::runtime_error("failed to present swap chain image!");
 		}
 	};
+
+	std::vector<LveModel::Vertex> FirstApp::breakTriangle(std::vector<LveModel::Vertex>& vertices, int numberOfBreaks) {
+		int vecSize = vertices.size();
+
+		if (vecSize < 3) {
+			throw std::runtime_error("invalid input");
+		}
+
+		std::vector<LveModel::Vertex> subVertices{};
+		std::vector<LveModel::Vertex> newVertices{};
+
+		for (int i = 0; i < numberOfBreaks; i++) {
+			for (int j = 0; j < vertices.size(); j += 3) {
+				glm::vec2 v1 = vertices[j].position;
+				glm::vec2 v2 = vertices[j + 1].position;
+				glm::vec2 v3 = vertices[j + 2].position;
+				glm::vec2 leftPoint = { (v1.x + v2.x) / 2, (v1.y + v2.y) / 2 };
+				glm::vec2 rightPoint = { (v1.x + v3.x) / 2, (v1.y + v3.y) / 2 };
+				glm::vec2 bottomPoint = { (v2.x + v3.x) / 2, (v2.y + v3.y) / 2 };
+
+				subVertices = {
+					// T1
+					{v1},
+					{leftPoint},
+					{rightPoint},
+					// T2
+					{leftPoint},
+					{v2},
+					{bottomPoint},
+					// T3
+					{rightPoint},
+					{bottomPoint},
+					{v3},
+				};
+
+				newVertices.insert(end(newVertices), begin(subVertices), end(subVertices));
+			}
+
+			vertices.clear();
+			vertices.insert(end(vertices), begin(newVertices), end(newVertices));
+			newVertices.clear();
+
+		}
+		
+		return vertices;
+	}
 }
